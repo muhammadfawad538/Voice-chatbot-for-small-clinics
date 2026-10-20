@@ -425,9 +425,11 @@ def handoff_to_human(conn, inp: HandoffToHumanInput) -> dict[str, Any]:
     if not inp.confirmed:
         return _error("confirmation_required", "I need to confirm before transferring you.")
 
-    # A handoff belongs to a call. The agent loop passes the call id in via
-    # _call_id; outside a call the row simply has no call_id.
-    call_id = None
+    # The call id comes from the context var set by the agent loop.
+    # Outside a call the row simply has no call_id.
+    from app.tools.decorator import get_current_call_id
+
+    call_id = get_current_call_id()
     conn.execute(
         """
         INSERT INTO handoffs (call_id, reason, status, created_at)

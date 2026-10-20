@@ -13,15 +13,33 @@ from __future__ import annotations
 import json
 import sqlite3
 import time
+import typing
+from contextvars import ContextVar
 from functools import wraps
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 from app.db import connect as db_connect
 from app.db import log_tool_call
 from app.tools.calendar import CalendarError
 from app.tools.masking import looks_like_phone, mask_phone
+
+# The call id the current tool call belongs to. The agent loop sets it; tools
+# that write a call-scoped row (handoff_to_human) read it from here. A context
+# var keeps it out of every tool signature.
+_current_call_id: ContextVar[int | None] = ContextVar("current_call_id", default=None)
+
+
+def set_current_call_id(call_id: int | None) -> None:
+    """Set the call id for tool calls made in this context."""
+    _current_call_id.set(call_id)
+
+
+def get_current_call_id() -> int | None:
+    """The call id for the current tool call, if any."""
+    return _current_call_id.get()
+
 
 # ---------------------------------------------------------------------------
 # Tool result
@@ -90,6 +108,50 @@ def _mask_args(args: tuple, kwargs: dict[str, Any]) -> str:
 # ---------------------------------------------------------------------------
 
 
+def _validate_input(func, args: tuple, kwargs: dict[str, Any]) -> BaseModel | None:
+    """Extract and validate the tool's Pydantic input model.
+
+    The second positional parameter of every tool is its input model. The
+    decorator validates it here, once, so a malformed call never reaches the
+    tool body. Returns ``None`` only if the function has no model parameter.
+    """
+    import inspect
+
+    try:
+        hints = typing.get_type_hints(func)
+    except Exception:
+        hints = getattr(func, "__annotations__", {})
+
+    params = list(inspect.signature(func).parameters)
+    if len(params) < 2:
+        return None
+
+    input_name = params[1]
+    model_cls = hints.get(input_name)
+    if not (isinstance(model_cls, type) and issubclass(model_cls, BaseModel)):
+        return None
+
+    if len(args) > 1:
+        payload = args[1]
+        if isinstance(payload, model_cls):
+            return payload
+        if isinstance(payload, dict):
+            merged = dict(payload)
+            merged.update(kwargs)
+            return model_cls(**merged)
+        return payload
+
+    if input_name in kwargs:
+        payload = kwargs.pop(input_name)
+        if isinstance(payload, model_cls):
+            return payload
+        merged = dict(payload or {})
+        merged.update(kwargs)
+        return model_cls(**merged)
+
+    return model_cls(**kwargs)
+
+
 def _error_code_from_exception(exc: CalendarError) -> str:
     """Map a calendar exception to its tool error code."""
     if isinstance(exc, CalendarError):
@@ -130,19 +192,53 @@ def tool(func):
 
     If the caller passes ``conn=None``, the decorator opens its own
     connection and closes it in ``finally``.
+
+    The decorator owns input validation, so a malformed call never reaches the
+    tool body. The call id travels in a context variable rather than as an
+    argument, which keeps every tool signature at ``(conn, input_model)``.
     """
 
     @wraps(func)
     def wrapper(*args, **kwargs):
         call_id = kwargs.pop("_call_id", None)
+
         start = time.time()
 
         # Determine if we own the connection.
         owns_conn = not args or args[0] is None
         conn: sqlite3.Connection = db_connect() if owns_conn else args[0]
 
+        # The call id is visible to the tool body through the context var.
+        # An explicit _call_id wins; otherwise the ambient value (set by the
+        # agent loop) is kept, not cleared.
+        if call_id is not None:
+            token = _current_call_id.set(call_id)
+        else:
+            token = None
         try:
-            result = func(conn, *args[1:], **kwargs)
+            try:
+                inp = _validate_input(func, args, kwargs)
+            except ValidationError as exc:
+                tr = ToolResult(
+                    ok=False,
+                    tool=func.__name__,
+                    error_code="invalid_arguments",
+                    message=_user_message_for("invalid_arguments"),
+                    data={"detail": str(exc)},
+                )
+                latency_ms = int((time.time() - start) * 1000)
+                _write_log(
+                    conn=conn,
+                    call_id=call_id,
+                    tool_name=func.__name__,
+                    args=args,
+                    kwargs=kwargs,
+                    tr=tr,
+                    latency_ms=latency_ms,
+                )
+                return tr.to_dict()
+
+            result = func(conn, inp, **kwargs)
 
             if isinstance(result, dict) and result.get("error"):
                 # The tool returned an explicit error dict.
@@ -220,6 +316,8 @@ def tool(func):
             )
             return tr.to_dict()
         finally:
+            if token is not None:
+                _current_call_id.reset(token)
             if owns_conn:
                 try:
                     conn.close()

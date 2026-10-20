@@ -77,6 +77,28 @@ class Settings(BaseSettings):
         description="How many calls fail. Unset means always. Dev/test only.",
     )
 
+    # Phase 2b — Agent Loop
+    groq_api_key: str | None = Field(
+        default=None,
+        description="Groq API key for tool-calling LLM.",
+    )
+    groq_model: str = Field(
+        default="llama-3.3-70b-versatile",
+        description="Groq model name for the agent.",
+    )
+    voicechat_max_steps: int = Field(
+        default=10,
+        description="Maximum conversation turns per call.",
+    )
+    voicechat_call_timeout_s: float = Field(
+        default=30.0,
+        description="Per-call wall-clock timeout in seconds.",
+    )
+    voicechat_system_prompt_path: str | None = Field(
+        default=None,
+        description="Optional path to override the built-in system prompt.",
+    )
+
     @property
     def db_path(self) -> Path:
         """Resolve DATABASE_URL to an absolute filesystem path."""

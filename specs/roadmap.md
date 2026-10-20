@@ -8,20 +8,20 @@
 Spec: `specs/phase-01-backend-skeleton.md`.
 
 ## Phase 2a — Mock Calendar and Tools (no LLM)
-- [ ] Mock calendar API (check_availability, book_slot, reschedule, cancel)
-- [ ] Failure injection (timeout, server error, slot taken at last moment)
-- [ ] Tool functions with Pydantic input/output models and clean error results
-- [ ] Log every tool call (arguments, result, latency), phone numbers masked
-- [ ] Enforce confirmed=True for all write tools in code
-- [ ] handoff_to_human tool
+- [x] Mock calendar API (check_availability, book_slot, reschedule, cancel)
+- [x] Failure injection (timeout, server error, slot taken at last moment)
+- [x] Tool functions with Pydantic input/output models and clean error results
+- [x] Log every tool call (arguments, result, latency), phone numbers masked
+- [x] Enforce confirmed=True for all write tools in code
+- [x] handoff_to_human tool
 
 ## Phase 2b — Text Agent Loop
-- [ ] Conversation loop with Groq tool calling (receive → think → call tool → respond)
-- [ ] Validate tool arguments before running anything
-- [ ] Step limit, timeout and per-call cost tracking
-- [ ] Booking confirmation flow (read back name, date, time)
-- [ ] Handoff logic (complaints, urgent, medical, unsure → human)
-- [ ] Prompt injection tests for caller messages
+- [x] Conversation loop with Groq tool calling (receive → think → call tool → respond)
+- [x] Validate tool arguments before running anything
+- [x] Step limit, timeout and per-call cost tracking
+- [x] Booking confirmation flow (read back name, date, time)
+- [x] Handoff logic (complaints, urgent, medical, unsure → human)
+- [x] Prompt injection tests for caller messages
 
 ## Phase 2c — FAQ Knowledge Base (RAG)
 - [ ] Write fake knowledge base documents (20 to 40, short, with updated dates)

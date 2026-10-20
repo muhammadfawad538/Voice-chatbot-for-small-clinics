@@ -9,8 +9,17 @@ plan; each phase has its own feature spec.
 
 ## Status
 
-Phase 1 — backend skeleton. See
-[`specs/phase-01-backend-skeleton.md`](specs/phase-01-backend-skeleton.md).
+Phase 2b — Text Agent Loop complete. See
+[`specs/phase-02b-text-agent-loop.md`](specs/phase-02b-text-agent-loop.md).
+
+- Agent loop with Groq tool calling (`llama-3.3-70b-versatile`)
+- Fake LLM for unit tests (no API key needed in CI)
+- Step limit, timeout, cost tracking
+- Booking confirmation flow with `confirmed=True` tripwire
+- Six handoff reasons via `handoff_to_human`
+- Prompt-injection test suite (code-enforced + live model)
+
+Next: Phase 2c — FAQ Knowledge Base (RAG).
 
 ## Requirements
 
