@@ -16,7 +16,7 @@ from pathlib import Path
 
 from app.config import SCHEMA_PATH, get_settings
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 # Applied by /health. An exact match is required: a missing table means the
 # schema did not initialise, an extra one means it drifted from schema.sql.
@@ -121,7 +121,7 @@ class BookingConflictError(Exception):
 
 
 def create_booking(
-    conn: sqlite3.Connection,
+    conn: sqlite3.Connection | None = None,
     *,
     caller_name: str,
     caller_number_masked: str,
@@ -135,44 +135,108 @@ def create_booking(
     Idempotency: the same idempotency_key always yields the same booking, so a
     retried request never double-books. A different key targeting a slot that a
     confirmed booking already holds raises BookingConflictError.
-    """
-    existing = conn.execute(
-        "SELECT * FROM bookings WHERE idempotency_key = ?", (idempotency_key,)
-    ).fetchone()
-    if existing is not None:
-        return existing
 
+    A repeat whose existing row is *cancelled* revives it — status back to
+    confirmed — rather than returning it as-is. The key is derived from the
+    caller and the slot, so a repeat with a cancelled row means the caller
+    booked that slot, cancelled it, and wants it again.
+
+    Pass ``conn=None`` to let the function open and close its own connection.
+    """
+    owned = conn is None
+    if conn is None:
+        conn = connect()
     try:
-        cursor = conn.execute(
-            """
-            INSERT INTO bookings
-                (caller_name, caller_number_masked, slot_start, slot_end,
-                 status, idempotency_key, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                caller_name,
-                caller_number_masked,
-                slot_start,
-                slot_end,
-                status,
-                idempotency_key,
-                utcnow(),
-            ),
-        )
-        conn.commit()
-    except sqlite3.IntegrityError as exc:
-        conn.rollback()
-        if "ux_bookings_confirmed_slot" in str(exc) or "slot_start" in str(exc):
-            raise BookingConflictError(
-                f"slot {slot_start} is already confirmed by another booking"
-            ) from exc
-        raise
-    return get_booking(conn, cursor.lastrowid)
+        existing = conn.execute(
+            "SELECT * FROM bookings WHERE idempotency_key = ?", (idempotency_key,)
+        ).fetchone()
+        if existing is not None:
+            if existing["status"] == "cancelled" and status == "confirmed":
+                conn.execute(
+                    "UPDATE bookings SET status = 'confirmed' WHERE id = ?",
+                    (existing["id"],),
+                )
+                conn.commit()
+                return get_booking(conn, existing["id"])
+            return existing
+
+        try:
+            cursor = conn.execute(
+                """
+                INSERT INTO bookings
+                    (caller_name, caller_number_masked, slot_start, slot_end,
+                     status, idempotency_key, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    caller_name,
+                    caller_number_masked,
+                    slot_start,
+                    slot_end,
+                    status,
+                    idempotency_key,
+                    utcnow(),
+                ),
+            )
+            conn.commit()
+        except sqlite3.IntegrityError as exc:
+            conn.rollback()
+            if "ux_bookings_confirmed_slot" in str(exc) or "slot_start" in str(exc):
+                raise BookingConflictError(
+                    f"slot {slot_start} is already confirmed by another booking"
+                ) from exc
+            raise
+        return get_booking(conn, cursor.lastrowid)
+    finally:
+        if owned:
+            conn.close()
 
 
 def get_booking(conn: sqlite3.Connection, booking_id: int) -> sqlite3.Row:
     return conn.execute("SELECT * FROM bookings WHERE id = ?", (booking_id,)).fetchone()
+
+
+# ---------------------------------------------------------------------------
+# Tool calls
+# ---------------------------------------------------------------------------
+
+
+def log_tool_call(
+    conn: sqlite3.Connection,
+    *,
+    call_id: int | None,
+    tool_name: str,
+    arguments_json: str,
+    result_json: str | None,
+    success: bool,
+    latency_ms: int,
+    injected: bool = False,
+) -> int:
+    """Write one tool_calls row. Returns the new row id.
+
+    ``injected`` marks a failure the test suite asked for, so evaluation can
+    tell an injected failure from a real bug.
+    """
+    cursor = conn.execute(
+        """
+        INSERT INTO tool_calls
+            (call_id, tool_name, arguments_json, result_json, success,
+             latency_ms, injected, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            call_id,
+            tool_name,
+            arguments_json,
+            result_json,
+            1 if success else 0,
+            latency_ms,
+            1 if injected else 0,
+            utcnow(),
+        ),
+    )
+    conn.commit()
+    return cursor.lastrowid
 
 
 def cancel_booking(conn: sqlite3.Connection, booking_id: int) -> sqlite3.Row:

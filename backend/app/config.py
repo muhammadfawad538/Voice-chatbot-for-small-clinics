@@ -41,6 +41,42 @@ class Settings(BaseSettings):
     environment: str = "development"
     cors_origins: str = "http://localhost:3000"
 
+    # Calendar configuration
+    calendar_timezone: str = Field(
+        default="America/New_York",
+        description="IANA timezone for the business (e.g. America/New_York)",
+    )
+    calendar_open_time: str = Field(
+        default="09:00",
+        description="Opening time in HH:MM format, business-local",
+    )
+    calendar_close_time: str = Field(
+        default="17:00",
+        description="Closing time in HH:MM format, business-local",
+    )
+    calendar_slot_minutes: int = Field(
+        default=30,
+        description="Length of a booking slot in minutes",
+    )
+    calendar_closed_weekdays: str = Field(
+        default="saturday,sunday",
+        description="Comma-separated weekday names when the business is closed",
+    )
+
+    # Failure injection — for manual demos and tests only.
+    # The app refuses to start if these are set outside dev/test.
+    calendar_failure_mode: str | None = Field(
+        default=None,
+        description=(
+            "Failure mode for the mock calendar: timeout, server_error, "
+            "slot_taken_at_last_moment. Dev/test only."
+        ),
+    )
+    calendar_failure_times: int | None = Field(
+        default=None,
+        description="How many calls fail. Unset means always. Dev/test only.",
+    )
+
     @property
     def db_path(self) -> Path:
         """Resolve DATABASE_URL to an absolute filesystem path."""

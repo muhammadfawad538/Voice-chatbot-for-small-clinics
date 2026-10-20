@@ -49,15 +49,20 @@ CREATE INDEX IF NOT EXISTS idx_call_turns_call ON call_turns(call_id);
 
 -- ---------------------------------------------------------------------------
 -- Tool calls
+--
+-- call_id is nullable: a tool can be exercised outside a phone call (tests,
+-- staff trying the flow from the dashboard). A tool call with no call_id is
+-- not part of a caller's transcript.
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS tool_calls (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    call_id         INTEGER NOT NULL REFERENCES calls(id),
+    call_id         INTEGER REFERENCES calls(id),
     tool_name       TEXT    NOT NULL,
     arguments_json  TEXT    NOT NULL DEFAULT '{}',
     result_json     TEXT,
     success         INTEGER NOT NULL DEFAULT 0 CHECK (success IN (0, 1)),
     latency_ms      INTEGER,
+    injected        INTEGER NOT NULL DEFAULT 0 CHECK (injected IN (0, 1)),
     created_at      TEXT    NOT NULL
 );
 

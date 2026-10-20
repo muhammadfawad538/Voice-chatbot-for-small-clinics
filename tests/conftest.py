@@ -23,10 +23,23 @@ from app.main import create_app  # noqa: E402
 
 @pytest.fixture
 def db_path(tmp_path: Path) -> Path:
-    """A fresh, initialised database in a temp directory."""
+    """A fresh, initialised database in a temp directory.
+
+    Settings are pointed at it, because the mock calendar client opens its own
+    connection from ``settings.db_path`` — the same way a real provider client
+    would manage its own storage.
+    """
     path = tmp_path / "test.db"
     init_db(path)
-    return path
+
+    from app.config import settings as cached_settings
+
+    previous = cached_settings.database_url
+    cached_settings.database_url = str(path)
+    try:
+        yield path
+    finally:
+        cached_settings.database_url = previous
 
 
 @pytest.fixture

@@ -29,6 +29,16 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """Build the database on startup. Failure to do so is fatal."""
     settings = get_settings()
+
+    # Guard: refuse to start with a calendar failure mode set outside dev/test.
+    if settings.calendar_failure_mode is not None:
+        env = settings.environment
+        if env not in ("dev", "development", "test"):
+            raise RuntimeError(
+                f"calendar_failure_mode is set to '{settings.calendar_failure_mode}' "
+                f"but environment is '{env}'. Set it only in dev / test."
+            )
+
     try:
         tables = init_db(settings.db_path)
         logger.info(
