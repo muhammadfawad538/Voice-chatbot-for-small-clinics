@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "voice-chatbot"
+version = "0.1.0"
+description = "Voice AI receptionist for small businesses"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115,<1",
+    "uvicorn[standard]>=0.32,<1",
+    "pydantic>=2.10,<3",
+    "pydantic-settings>=2.6,<3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3,<9",
+    "httpx>=0.27",
+    "ruff>=0.7",
+]
+
+[tool.setuptools]
+# `app` lives under backend/ and is on sys.path via pytest's pythonpath and
+# uvicorn's --app-dir; `scripts` is a root-level package. Neither needs to be
+# installed for imports to resolve, but declaring them keeps `pip` happy and
+# `python -m scripts.init_db` working from the repo root.
+package-dir = {"" = ".", "app" = "backend/app"}
+packages = ["app", "app.models", "app.routers", "scripts"]
+
+[tool.pytest.ini_options]
+pythonpath = ["backend", "."]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["backend", "scripts", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
