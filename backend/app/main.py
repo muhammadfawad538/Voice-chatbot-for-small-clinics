@@ -9,14 +9,16 @@ from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app import __version__
 from app.config import get_settings
 from app.db import init_db
-from app.routers import health_router
+from app.routers import health_router, voice_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -68,6 +70,11 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(health_router, prefix="/api/v1")
+    app.include_router(voice_router, prefix="/api/v1")
+
+    # Serve the call screen at /call
+    static_dir = Path(__file__).resolve().parent / "static"
+    app.mount("/call", StaticFiles(directory=static_dir, html=True), name="call")
 
     @app.get("/", tags=["root"])
     def root() -> dict:
@@ -77,6 +84,7 @@ def create_app() -> FastAPI:
             "environment": settings.environment,
             "health": "/api/v1/health",
             "docs": "/docs",
+            "call_screen": "/call",
         }
 
     return app

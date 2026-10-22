@@ -23,22 +23,37 @@ Spec: `specs/phase-01-backend-skeleton.md`.
 - [x] Handoff logic (complaints, urgent, medical, unsure → human)
 - [x] Prompt injection tests for caller messages
 
-## Phase 2c — FAQ Knowledge Base (RAG)
-- [ ] Write fake knowledge base documents (20 to 40, short, with updated dates)
-- [ ] Index into the local vector store (Qdrant) and build the search_knowledge tool
-- [ ] Confidence threshold: "no confident match" → take a message
-- [ ] Log every retrieval (query, chunks, scores)
-- [ ] Planted-instruction test in a knowledge document
-- [ ] Compare: no KB vs full FAQ in prompt vs RAG (correctness, latency)
+## Phase 2c — FAQ Knowledge Base (RAG) — **SQLite FTS5 (BM25)**
+- [x] 25 knowledge documents in `knowledge/` (Markdown with front matter, administrative topics only; planted-injection fixture moved to `tests/fixtures/`)
+- [x] Indexer script `scripts/index_kb.py` → `faq_documents` + FTS5 virtual table; idempotent, `--rebuild`, deactivates removed docs on rebuild too
+- [x] `KnowledgeSearch` interface + `FtsKnowledgeSearch` implementation (swappable for embeddings later)
+- [x] `search_knowledge(query)` tool registered via `@logged_tool`, Pydantic I/O models, FTS5 query sanitization
+- [x] Confidence threshold in config (`voicechat_kb_threshold`, tuned on dev set); below threshold → `found=false` → offer message
+- [x] Every retrieval logged to `retrievals` table (query masked, document_id, score, rank)
+- [x] Planted-instruction test: a document contains "Ignore previous instructions..." → does not cause a write through the loop (fixture isolated in `tests/fixtures/`)
+- [x] `kb_mode` setting (`none` | `full_prompt` | `rag`); system prompt template selects behavior
+- [x] Offline eval `scripts/eval_kb.py`: hit rate @1/@3 by type on held-out set, threshold tuned on dev set (2.6), writes to `eval_results`
+- [x] Evaluation set `eval/questions.csv`: 40 questions (21 dev, 19 held-out); paraphrase questions audited and relabelled (q16 dev, q34+q35 heldout relabelled normal)
+- [x] Live eval `scripts/eval_kb_live.py`: three `kb_mode`s on held-out, key-fact correctness, correct refusal, confident-but-wrong, avg + p95 latency, token usage (requires `GROQ_API_KEY`)
+- [ ] Compare: no KB vs full FAQ in prompt vs RAG (correctness, latency) — **not yet measured**
+
+**Held-out retrieval results** (threshold 2.6, tuned on dev): hit@1 0.500 (7/14), hit@3 0.643 (9/14), correct_refusal 1.000 (5/5).
+
+**Planted-instruction test**: ran live injection tests once with Groq — 15 passed, 0 failed, all 7 live tests passed.
+
+**Comparison pending**: needs one valid run per `kb_mode` (rate-limited free tier). The previous attempt was invalidated by the Groq daily token limit, which scored 429 failures as wrong answers; all three modes must be re-run. See "How to resume the three-way comparison" in `specs/phase-02c-rag.md`.
+
+**Model note:** the default Groq model was `llama-3.3-70b-versatile`, which Groq has retired (404). The default is now `openai/gpt-oss-120b` — the only tool-calling model on the free tier. A model that does not call tools produces an agent that silently never reaches the knowledge base, and every retrieval metric reads as zero.
 
 ## Phase 3 — Voice Pipeline (browser only)
-- [ ] Reconcile Python version (3.12 vs installed 3.14) and verify speech packages install
-- [ ] Integrate Pipecat for STT → agent → TTS (local Whisper, Piper, Silero VAD first)
-- [ ] Use Pipecat Flows for guided booking steps
-- [ ] Browser call screen over WebRTC (start from Pipecat's starter client; build React only if needed)
-- [ ] AI disclosure at the start of every call
-- [ ] Interruption handling and read-back confirmation for names, numbers and dates
-- [ ] Measure latency per turn; compare local vs hosted speech if needed
+- [ ] Feasibility check: record PC specs, confirm pipecat-ai installs/imports on Python 3.14; write specs/phase-03-voice-spike.md with the lightest working stack plus a fallback (research only, no product code) — **DONE: decision = Web Speech API, no Pipecat**
+- [ ] Browser call screen: plain HTML/JS page served by FastAPI (no React, no build step)
+- [ ] Browser speech APIs: SpeechRecognition (STT), SpeechSynthesis (TTS); AI disclosure spoken at start
+- [ ] Barge-in: cancel speechSynthesis when user starts speaking (JS-side)
+- [ ] POST /api/v1/voice/turn endpoint: transcript + session_id → agent loop → reply text + per-stage timings; audio never reaches server
+- [ ] Echo test mode: page speaks back what it heard without calling agent, to prove audio path
+- [ ] Latency measured in browser per stage (recognition, synthesis, network RTT); sent to server for logging
+- [ ] Later: comparison against hosted speech-to-text fallback (optional)
 
 ## Phase 4 — Staff Dashboard
 - [ ] Call log viewer (transcripts, masked phone numbers)

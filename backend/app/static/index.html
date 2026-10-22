@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Voice AI Receptionist</title>
+  <style>
+    :root {
+      --bg: #0f1115;
+      --fg: #e8e8e8;
+      --muted: #8b8b8b;
+      --accent: #22d3ee;
+      --accent-weak: rgba(34, 211, 238, 0.15);
+      --card: #1a1d23;
+      --border: #2d3139;
+      --ok: #22c55e;
+      --warn: #f59e0b;
+      --err: #ef4444;
+      --radius: 12px;
+      --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px;
+    }
+    .container { width: 100%; max-width: 600px; }
+    header { text-align: center; margin-bottom: 24px; }
+    h1 { margin: 0 0 8px; font-size: 1.75rem; font-weight: 600; }
+    .subtitle { color: var(--muted); font-size: 0.95rem; }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: var(--shadow);
+    }
+
+    /* Connection status */
+    .status-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      padding: 12px 16px;
+      background: var(--bg);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.9rem;
+    }
+    .dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: var(--err);
+      transition: background 0.2s;
+    }
+    .dot.ok { background: var(--ok); }
+    .dot.warn { background: var(--warn); }
+
+    /* Transcript */
+    .transcript {
+      max-height: 320px;
+      overflow-y: auto;
+      padding: 12px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.875rem;
+      line-height: 1.6;
+      margin-bottom: 16px;
+    }
+    .turn {
+      margin-bottom: 10px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .turn:last-child { margin-bottom: 0; }
+    .turn .speaker {
+      font-weight: 600;
+      margin-right: 8px;
+    }
+    .turn.caller .speaker { color: var(--accent); }
+    .turn.bot .speaker { color: var(--ok); }
+
+    /* Controls */
+    .controls {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .btn-row { display: flex; gap: 12px; flex-wrap: wrap; }
+    button {
+      flex: 1;
+      min-width: 120px;
+      padding: 14px 20px;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.05s, opacity 0.2s, background 0.2s;
+    }
+    button:active { transform: scale(0.98); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary { background: var(--accent); color: #051014; }
+    .btn-primary:hover:not(:disabled) { background: #06b6d4; }
+    .btn-danger { background: var(--err); color: white; }
+    .btn-danger:hover:not(:disabled) { background: #dc2626; }
+    .btn-secondary { background: var(--border); color: var(--fg); }
+    .btn-secondary:hover:not(:disabled) { background: #3d424c; }
+
+    /* Fallback text input */
+    .fallback {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .fallback input {
+      flex: 1;
+      padding: 12px 16px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--fg);
+      font-size: 1rem;
+    }
+    .fallback input:focus { outline: none; border-color: var(--accent); }
+    .fallback input::placeholder { color: var(--muted); }
+
+    /* Timings */
+    .timings {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+      gap: 8px;
+      margin-top: 16px;
+      padding: 12px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.8rem;
+    }
+    .timing { display: flex; flex-direction: column; gap: 2px; }
+    .timing-label { color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .timing-value { font-weight: 600; font-family: ui-monospace, monospace; }
+    .timing-value.ok { color: var(--ok); }
+    .timing-value.warn { color: var(--warn); }
+
+    /* Footer */
+    footer { margin-top: 24px; text-align: center; color: var(--muted); font-size: 0.75rem; }
+    footer a { color: var(--accent); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+
+    /* Hidden utility */
+    .hidden { display: none !important; }
+
+    /* Live region for screen readers */
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Voice AI Receptionist</h1>
+      <p class="subtitle">Click <strong>Start Call</strong>, allow microphone, then speak.</p>
+    </header>
+
+    <main class="card">
+      <div class="status-row">
+        <div class="status-indicator">
+          <span class="dot" id="statusDot"></span>
+          <span id="statusText">Idle — click Start Call</span>
+        </div>
+        <span id="callId" class="sr-only"></span>
+      </div>
+
+      <div class="transcript" id="transcript" aria-live="polite" aria-label="Conversation transcript">
+        <div class="turn empty">No conversation yet. Click Start Call to begin.</div>
+      </div>
+
+      <div class="controls">
+        <div class="btn-row">
+          <button id="btnStart" class="btn-primary" onclick="startCall()">Start Call</button>
+          <button id="btnEnd" class="btn-danger hidden" onclick="endCall()">End Call</button>
+        </div>
+        <div class="fallback">
+          <input type="text" id="fallbackInput" placeholder="Type if speech isn't working…" aria-label="Fallback text input">
+          <button class="btn-secondary" onclick="sendFallback()" style="min-width: 100px;">Send</button>
+        </div>
+      </div>
+
+      <div class="timings" id="timings" hidden>
+        <div class="timing">
+          <span class="timing-label">STT (browser)</span>
+          <span class="timing-value" id="tStt">—</span>
+        </div>
+        <div class="timing">
+          <span class="timing-label">Synthesis</span>
+          <span class="timing-value" id="tSynth">—</span>
+        </div>
+        <div class="timing">
+          <span class="timing-label">Agent</span>
+          <span class="timing-value ok" id="tAgent">—</span>
+        </div>
+        <div class="timing">
+          <span class="timing-label">Total</span>
+          <span class="timing-value" id="tTotal">—</span>
+        </div>
+      </div>
+    </main>
+
+    <footer>
+      <p>Phase 3 — Web Speech API demo. No audio leaves the browser.</p>
+      <p><a href="/docs">API docs</a> · <a href="/api/v1/health">Health</a></p>
+    </footer>
+  </div>
+
+  <script>
+/* =========================================================================
+ * Voice Call Screen — Web Speech API only
+ * No Pipecat, no WebRTC, no native audio packages.
+ * ========================================================================= */
+
+(function () {
+  // --- DOM ---
+  const $ = (id) => document.getElementById(id);
+  const transcriptEl = $('transcript');
+  const statusDot = $('statusDot');
+  const statusText = $('statusText');
+  const btnStart = $('btnStart');
+  const btnEnd = $('btnEnd');
+  const fallbackInput = $('fallbackInput');
+  const timingsEl = $('timings');
+  const tStt = $('tStt'), tSynth = $('tSynth'), tAgent = $('tAgent'), tTotal = $('tTotal');
+
+  // --- State ---
+  let recognition = null;
+  let synthesis = window.speechSynthesis;
+  let sessionId = null;
+  let callActive = false;
+  let speaking = false;
+  let recognitionStart = 0;
+  let lastEndTime = 0;
+
+  // --- Helpers ---
+  function setStatus(text, cls) {
+    statusText.textContent = text;
+    statusDot.className = 'dot' + (cls ? ' ' + cls : '');
+  }
+  function addTurn(speaker, text) {
+    if (transcriptEl.querySelector('.empty')) transcriptEl.innerHTML = '';
+    const div = document.createElement('div');
+    div.className = 'turn ' + speaker;
+    div.innerHTML = '<span class="speaker">' + (speaker === 'caller' ? 'You' : 'Bot') + ':</span>' + escapeHtml(text);
+    transcriptEl.appendChild(div);
+    transcriptEl.scrollTop = transcriptEl.scrollHeight;
+  }
+  function escapeHtml(s) {
+    return s.replace(/&/g, '&').replace(/</g, '<').replace(/>/g, '>');
+  }
+  function showTimings(t) {
+    timingsEl.hidden = false;
+    tStt.textContent = t.stt_ms ? t.stt_ms + ' ms' : '—';
+    tSynth.textContent = t.synthesis_ms ? t.synthesis_ms + ' ms' : '—';
+    tAgent.textContent = t.agent_ms ? t.agent_ms + ' ms' : '—';
+    tTotal.textContent = t.total_ms ? t.total_ms + ' ms' : '—';
+  }
+
+  // --- Speech Synthesis (TTS) ---
+  function speak(text) {
+    return new Promise((resolve) => {
+      if (!synthesis) { resolve(); return; }
+      // Cancel any ongoing speech (barge-in)
+      synthesis.cancel();
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = 'en-US';
+      utter.rate = 1.0;
+      utter.pitch = 1.0;
+      utter.volume = 1.0;
+      utter.onend = () => { speaking = false; resolve(); };
+      utter.onerror = (e) => { speaking = false; console.warn('speechSynthesis error', e); resolve(); };
+      speaking = true;
+      const synthStart = performance.now();
+      synthesis.speak(utter);
+      // Approximate synthesis queue time (tiny)
+      setTimeout(() => { /* just to give it a tick */ }, 0);
+    });
+  }
+
+  function cancelSpeech() {
+    if (synthesis) synthesis.cancel();
+    speaking = false;
+  }
+
+  // --- Speech Recognition (STT) ---
+  function startRecognition() {
+    const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!Recognition) {
+      setStatus('Speech recognition not supported in this browser', 'warn');
+      return false;
+    }
+    recognition = new Recognition();
+    recognition.lang = 'en-US';
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
+
+    let finalTranscript = '';
+    let interimTranscript = '';
+
+    recognition.onstart = () => {
+      recognitionStart = performance.now();
+      setStatus('Listening…', 'ok');
+    };
+
+    recognition.onresult = (event) => {
+      interimTranscript = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const res = event.results[i];
+        if (res.isFinal) finalTranscript += res[0].transcript + ' ';
+        else interimTranscript += res[0].transcript;
+      }
+      // Barge-in: if we're speaking, cancel TTS immediately
+      if (speaking) {
+        cancelSpeech();
+        // Re-emit the partial to the agent after a short debounce
+        // (we'll send only on final below, but this signals intent)
+      }
+    };
+
+    recognition.onend = () => {
+      if (!callActive) return; // user ended call
+      // Restart recognition for continuous listening
+      try { recognition.start(); } catch (e) { /* ignore */ }
+    };
+
+    recognition.onerror = (e) => {
+      console.warn('SpeechRecognition error', e.error);
+      if (e.error === 'no-speech' || e.error === 'audio-capture') {
+        // Common, just keep listening
+      } else if (e.error === 'not-allowed') {
+        setStatus('Microphone permission denied', 'err');
+        stopRecognition();
+      }
+    };
+
+    // We only send FINAL transcripts to the server.
+    // Interim results are shown locally for UX but not sent.
+    const originalOnResult = recognition.onresult;
+    recognition.onresult = (event) => {
+      originalOnResult(event);
+      // Check if this event has a final result
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          const finalText = finalTranscript.trim();
+          if (finalText) {
+            const sttMs = Math.round(performance.now() - recognitionStart);
+            sendToServer(finalText, { stt: sttMs });
+            finalTranscript = '';
+            interimTranscript = '';
+            recognitionStart = performance.now(); // reset for next utterance
+            break;
+          }
+        }
+      }
+    };
+
+    try { recognition.start(); } catch (e) { console.warn('recognition.start failed', e); return false; }
+    return true;
+  }
+
+  function stopRecognition() {
+    if (recognition) {
+      try { recognition.stop(); } catch (e) {}
+      recognition = null;
+    }
+  }
+
+  // --- Server communication ---
+  async function sendToServer(text, clientTimings) {
+    if (!callActive || !sessionId) return;
+    const networkStart = performance.now();
+    try {
+      const resp = await fetch('/api/v1/voice/turn', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session_id: sessionId,
+          transcript: text,
+          timings: clientTimings
+        })
+      });
+      const networkMs = Math.round(performance.now() - networkStart);
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.detail || `HTTP ${resp.status}`);
+      }
+      const data = await resp.json();
+      // Render bot reply
+      addTurn('bot', data.reply);
+      // Speak it
+      await speak(data.reply);
+      // Update timings
+      const totalMs = (data.timings?.agent_ms || 0) + networkMs + (clientTimings?.stt || 0);
+      showTimings({
+        stt_ms: clientTimings?.stt || 0,
+        synthesis_ms: data.timings?.synthesis_ms || 0,
+        agent_ms: data.timings?.agent_ms || 0,
+        total_ms: totalMs
+      });
+      if (data.ended) {
+        endCall();
+      }
+    } catch (e) {
+      console.error('voice turn failed', e);
+      addTurn('bot', 'Connection error. Please try again or use the text box.');
+      setStatus('Connection error', 'err');
+    }
+  }
+
+  // --- Call lifecycle ---
+  function startCall() {
+    if (callActive) return;
+    callActive = true;
+    sessionId = 'voice_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9);
+    btnStart.classList.add('hidden');
+    btnEnd.classList.remove('hidden');
+    fallbackInput.disabled = false;
+    transcriptEl.innerHTML = '';
+    timingsEl.hidden = true;
+
+    // Spoken AI disclosure (first thing the caller hears)
+    setStatus('Starting…', 'warn');
+    speak('This call may be recorded for quality and training purposes. How can I help you?')
+      .then(() => {
+        if (!callActive) return;
+        // Start recognition AFTER disclosure finishes
+        const ok = startRecognition();
+        if (!ok) {
+          setStatus('Speech recognition unavailable — use text box', 'warn');
+        }
+      });
+  }
+
+  function endCall() {
+    if (!callActive) return;
+    callActive = false;
+    stopRecognition();
+    cancelSpeech();
+    btnStart.classList.remove('hidden');
+    btnEnd.classList.add('hidden');
+    fallbackInput.disabled = true;
+    setStatus('Call ended', '');
+    // Clean up session
+    _sessions.delete(sessionId);
+    sessionId = null;
+  }
+
+  // Fallback text input
+  function sendFallback() {
+    const text = fallbackInput.value.trim();
+    if (!text || !callActive) return;
+    fallbackInput.value = '';
+    addTurn('caller', text);
+    sendToServer(text, { stt: 0 });
+  }
+
+  // Expose for console debugging
+  window._voiceDebug = { startCall, endCall, sendFallback, sessionId: () => sessionId };
+
+  // Enter key in fallback input
+  fallbackInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') sendFallback();
+  });
+
+  // Page unload cleanup
+  window.addEventListener('beforeunload', () => { if (callActive) endCall(); });
+})();
+</script>
+</body>
+</html>

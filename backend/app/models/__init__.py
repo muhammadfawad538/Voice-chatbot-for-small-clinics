@@ -5,5 +5,6 @@ agent tools in Phase 2.
 """
 
 from .health import HealthResponse
+from .voice import VoiceTurnRequest, VoiceTurnResponse
 
-__all__ = ["HealthResponse"]
+__all__ = ["HealthResponse", "VoiceTurnRequest", "VoiceTurnResponse"]
