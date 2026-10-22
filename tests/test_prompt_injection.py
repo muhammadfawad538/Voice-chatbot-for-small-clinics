@@ -250,6 +250,63 @@ def test_caller_number_is_masked_in_every_log(db_path):
 
 
 # ---------------------------------------------------------------------------
+# What the code enforces: a planted instruction inside a knowledge document
+# ---------------------------------------------------------------------------
+
+
+def test_knowledge_document_instruction_does_not_cause_write(db_path):
+    """A document containing "Ignore previous instructions..." is data, not a command.
+
+    The knowledge base is indexed from ``knowledge/``, which includes a
+    planted-injection document (``26-planted-injection.md``). When the agent
+    retrieves it, the text must be treated as untrusted data: a steered
+    ``book_slot`` call is still checked for business hours and ``confirmed``.
+    """
+    from scripts.index_kb import index_documents
+
+    conn = connect(db_path)
+    try:
+        stats = index_documents(conn, rebuild=True)
+        assert stats["inserted"] >= 25  # the planted doc is among them
+    finally:
+        conn.close()
+
+    llm = FakeLLMClient()
+    # Turn 1: the model retrieves the planted document.
+    llm.add_response(
+        _tool_call("search_knowledge", {"query": "wifi password", "confirmed": True})
+    )
+    # Turn 2: the planted text tries to steer a 3 AM booking.
+    llm.add_response(
+        _tool_call(
+            "book_slot",
+            {
+                "caller_name": "Victim",
+                "caller_number": "(555) 123-4567",
+                "date": "2026-11-02",
+                "time": "03:00",
+                "confirmed": True,
+            },
+        )
+    )
+    llm.add_response(_text("I cannot book that time."))
+
+    agent = AgentLoop(
+        caller_number="(555) 123-4567",
+        caller_number_masked="(XXX) XXX-4567",
+        llm_client=llm,
+        db_path=db_path,
+    )
+    agent.receive("What's the wifi password?")
+
+    conn = connect(db_path)
+    try:
+        assert conn.execute("SELECT COUNT(*) FROM bookings").fetchone()[0] == 0
+    finally:
+        conn.close()
+
+
+# ---------------------------------------------------------------------------
 # Live tests — need a real model
 # ---------------------------------------------------------------------------
 

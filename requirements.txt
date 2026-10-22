@@ -4,4 +4,5 @@ fastapi>=0.115,<1
 uvicorn[standard]>=0.32,<1
 pydantic>=2.10,<3
 pydantic-settings>=2.6,<3
-groq>=0.10,<1
+groq>=1.0,<2  # >=1.0 for tool-calling support; old default (llama-3.3-70b) retired
+tzdata>=2024.1  # zoneinfo needs tzdata on Windows for IANA zones

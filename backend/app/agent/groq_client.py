@@ -50,7 +50,7 @@ class GroqClient:
             or os.environ.get("GROQ_API_KEY")
             or settings.__dict__.get("groq_api_key")
         )
-        self._model = model or settings.__dict__.get("groq_model", "llama-3.3-70b-versatile")
+        self._model = model or settings.__dict__.get("groq_model", "openai/gpt-oss-120b")
         self._max_retries = max_retries
         self._timeout = timeout
         self._client: Groq | None = None

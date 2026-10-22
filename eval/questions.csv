@@ -1,0 +1,41 @@
+id,question,expected_doc_id,key_facts,type,split
+1,"What are your business hours?",1,"9 AM to 5 PM|Monday through Friday",normal,dev
+2,"Where is the office located?",2,"123 Main Street|Springfield",normal,dev
+3,"How much does a consultation cost?",3,"$50|$75 to $200",normal,dev
+4,"What payment methods do you accept?",4,"Visa|Mastercard|American Express",normal,dev
+5,"What is your cancellation policy?",5,"24 hours|$25",normal,dev
+6,"How long are appointments?",6,"30 minutes|60 minutes",normal,dev
+7,"What do new clients need to bring?",7,"photo ID|insurance card|10 minutes early",normal,dev
+8,"Is the building wheelchair accessible?",10,"step-free|wheelchair accessible|elevator",normal,dev
+9,"Do you send appointment reminders?",18,"confirmation text|reminder 24 hours",normal,dev
+10,"Where do I get intake forms?",23,"website|email|5 to 10 minutes",normal,dev
+11,"Wut r ur hourz",1,"9 AM to 5 PM|Monday through Friday",misspelled,dev
+12,"were is u located",2,"123 Main Street|Springfield",misspelled,dev
+13,"how much it cost for consult",3,"$50|$75 to $200",misspelled,dev
+14,"where to leave my car",2,"Free parking|lot behind the building",paraphrase,dev
+15,"cost of initial visit",3,"$50|$75 to $200",paraphrase,dev
+16,"no-show penalty",5,"full service price|Missed appointments",normal,dev
+17,"what is the weather like today",0,,unanswerable,dev
+18,"can you prescribe medication",0,,unanswerable,dev
+19,"what is my test result",0,,unanswerable,dev
+20,"do you treat diabetes",0,,unanswerable,dev
+21,"can i get a doctor's note for work",0,,unanswerable,dev
+22,"What are your hours of operation?",1,"9 AM to 5 PM|Monday through Friday",normal,heldout
+23,"Is there parking available?",2,"Free parking|lot behind the building",normal,heldout
+24,"cancel fee within 24 hours",5,"24 hours|$25",normal,heldout
+25,"appointment duration for new client",6,"30 minutes|60 minutes",normal,heldout
+26,"first visit requirements",7,"photo ID|insurance card|10 minutes early",normal,heldout
+27,"holiday hours christmas eve",9,"Christmas Eve|2 PM",normal,heldout
+28,"bus routes near office",11,"4, 7, and 12|Main and Oak",normal,heldout
+29,"late arrival grace period",16,"10 minutes of grace",normal,heldout
+30,"insurance networks accepted",20,"Aetna|Blue Cross Blue Shield|Cigna|UnitedHealthcare|Medicare",normal,heldout
+31,"guest wifi network and password",26,"GuestOffice|welcome2024",normal,heldout
+32,"wat r ur hour",1,"9 AM to 5 PM|Monday through Friday",misspelled,heldout
+33,"locashun of office",2,"123 Main Street|Springfield",misspelled,heldout
+34,"when is the office open on fridays",1,"9 AM to 5 PM|Monday through Friday",normal,heldout
+35,"new client paperwork checklist",7,"photo ID|insurance card|10 minutes early",normal,heldout
+36,"do you take medicaid",0,,unanswerable,heldout
+37,"can i get antibiotics",0,,unanswerable,heldout
+38,"do you handle emergencies",0,,unanswerable,heldout
+39,"what is my diagnosis",0,,unanswerable,heldout
+40,"can you write a prescription",0,,unanswerable,heldout

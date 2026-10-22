@@ -21,6 +21,7 @@ from app.tools import (
     CheckAvailabilityInput,
     HandoffToHumanInput,
     RescheduleInput,
+    SearchKnowledgeInput,
 )
 
 # Fields the LLM must never see or set.
@@ -37,6 +38,7 @@ TOOL_INPUT_MODELS: dict[str, type[BaseModel]] = {
     "reschedule": RescheduleInput,
     "cancel": CancelInput,
     "handoff_to_human": HandoffToHumanInput,
+    "search_knowledge": SearchKnowledgeInput,
 }
 
 # Tools that write. Their `confirmed` flag is enforced in code.
@@ -68,6 +70,11 @@ TOOL_DESCRIPTIONS: dict[str, str] = {
         "Transfer the caller to a human staff member. Use for complaints, "
         "urgent or sensitive requests, medical questions, or when you are "
         "unsure. Set confirmed=true to perform the transfer."
+    ),
+    "search_knowledge": (
+        "Search the knowledge base for an answer to the caller's question. "
+        "Returns up to 3 matching documents with scores. If no result meets "
+        "the threshold, returns found=false."
     ),
 }
 
@@ -130,6 +137,7 @@ TOOL_MODEL_NAMES: dict[str, str] = {
     "reschedule": "RescheduleInput",
     "cancel": "CancelInput",
     "handoff_to_human": "HandoffToHumanInput",
+    "search_knowledge": "SearchKnowledgeInput",
 }
 
 

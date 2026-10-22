@@ -18,7 +18,7 @@ Everything here is unit-testable with a fake LLM so CI runs without an API key.
 ### In scope
 
 - `AgentLoop` class — `receive(user_text) -> str` drives one turn.
-- Groq tool-calling client (model: `llama-3.3-70b-versatile`).
+- Groq tool-calling client (model: `openai/gpt-oss-120b`).
 - System prompt with tool definitions, business context, and guardrails.
 - Tool-call validation before execution — reject malformed calls early.
 - Step limit (max 10 turns per call), per-call timeout (30 s), cost tracking.
@@ -38,9 +38,15 @@ Everything here is unit-testable with a fake LLM so CI runs without an API key.
 
 ### Groq, not OpenAI
 
-Groq's `llama-3.3-70b-versatile` is fast, supports tool calling, and is free
+Groq's `openai/gpt-oss-120b` is fast, supports tool calling, and is free
 for development. The client is behind an interface so swapping providers later
 is a one-file change.
+
+The original default, `llama-3.3-70b-versatile`, was retired by Groq and now
+returns `404 model_not_found`. Any model used here must be verified to support
+tool calling on the Groq platform — `gpt-oss-20b` and `qwen3.8-27b` are
+available on the free tier but answer without calling tools, which silently
+produces an agent that never reaches the calendar or the knowledge base.
 
 ### The loop is synchronous
 
@@ -159,7 +165,7 @@ row is never missed.
 | variable | default | meaning |
 |---|---|---|
 | `GROQ_API_KEY` | *(required in prod)* | Groq API key |
-| `VOICECHAT_GROQ_MODEL` | `llama-3.3-70b-versatile` | Model name |
+| `GROQ_MODEL` | `openai/gpt-oss-120b` | Model name (must support tool calling) |
 | `VOICECHAT_MAX_STEPS` | `10` | Max conversation turns per call |
 | `VOICECHAT_CALL_TIMEOUT_S` | `30` | Per-call wall-clock timeout |
 | `VOICECHAT_SYSTEM_PROMPT_PATH` | *(optional)* | Override the built-in system prompt |
@@ -182,7 +188,7 @@ Derived from the Pydantic models in `app.tools.tools`:
 
 ```sql
 INSERT INTO eval_results (eval_name, case_id, passed, details_json, created_at)
-VALUES ('cost', '<call_id>', 1, '{"prompt_tokens": 123, "completion_tokens": 456, "model": "llama-3.3-70b-versatile"}', utcnow());
+VALUES ('cost', '<call_id>', 1, '{"prompt_tokens": 123, "completion_tokens": 456, "model": "openai/gpt-oss-120b"}', utcnow());
 ```
 
 ## Acceptance criteria

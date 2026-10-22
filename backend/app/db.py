@@ -16,10 +16,14 @@ from pathlib import Path
 
 from app.config import SCHEMA_PATH, get_settings
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 # Applied by /health. An exact match is required: a missing table means the
 # schema did not initialise, an extra one means it drifted from schema.sql.
+#
+# The faq_fts_* entries are the shadow tables SQLite creates for an FTS5
+# virtual table. They are listed explicitly so /health can tell the
+# difference between "the FTS index is missing" and "the FTS index drifted".
 EXPECTED_TABLES: frozenset[str] = frozenset(
     {
         "schema_version",
@@ -29,6 +33,11 @@ EXPECTED_TABLES: frozenset[str] = frozenset(
         "bookings",
         "handoffs",
         "faq_documents",
+        "faq_fts",
+        "faq_fts_config",
+        "faq_fts_data",
+        "faq_fts_docsize",
+        "faq_fts_idx",
         "retrievals",
         "eval_results",
     }

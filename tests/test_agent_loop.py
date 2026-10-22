@@ -89,9 +89,9 @@ def make_agent(db_path, llm, masked="(XXX) XXX-4567", config=None) -> AgentLoop:
 
 
 def test_tool_definitions_generated():
-    """All five tools have schemas derived from Pydantic models."""
+    """All six tools have schemas derived from Pydantic models."""
     defs = get_tool_definitions()
-    assert len(defs) == 5
+    assert len(defs) == 6
     names = {d["function"]["name"] for d in defs}
     assert names == {
         "check_availability",
@@ -99,6 +99,7 @@ def test_tool_definitions_generated():
         "reschedule",
         "cancel",
         "handoff_to_human",
+        "search_knowledge",
     }
     for d in defs:
         assert d["type"] == "function"

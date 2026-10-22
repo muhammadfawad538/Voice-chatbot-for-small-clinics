@@ -1,10 +1,10 @@
-"""Tool definitions for Phase 2a — Mock Calendar and Tools.
+"""Tool definitions for Phase 2a/2b — Calendar, Handoff, Knowledge.
 
 Public API:
 - calendar: CalendarClient, MockCalendarClient, and all CalendarError types
 - decorator: ToolResult, tool decorator
-- tools: check_availability, book_slot, reschedule, cancel, handoff_to_human
-  and their input models
+- tools: check_availability, book_slot, reschedule, cancel, handoff_to_human,
+  search_knowledge and their input models
 """
 
 from __future__ import annotations
@@ -19,9 +19,15 @@ from app.tools.calendar import (
     MockCalendarClient,
 )
 from app.tools.decorator import ToolResult, tool
+from app.tools.knowledge import (
+    SearchKnowledgeInput,
+    SearchKnowledgeOutput,
+    search_knowledge,
+)
 from app.tools.tools import (
     BookSlotInput,
     CancelInput,
+    CheckAvailabilityInput,
     HandoffToHumanInput,
     RescheduleInput,
     book_slot,
@@ -49,15 +55,13 @@ __all__ = [
     "reschedule",
     "cancel",
     "handoff_to_human",
+    "search_knowledge",
     # Input models
     "CheckAvailabilityInput",
     "BookSlotInput",
     "RescheduleInput",
     "CancelInput",
     "HandoffToHumanInput",
+    "SearchKnowledgeInput",
+    "SearchKnowledgeOutput",
 ]
-
-# Import input models (avoids re-exporting the private helpers)
-from app.tools.tools import (  # noqa: F401
-    CheckAvailabilityInput,
-)

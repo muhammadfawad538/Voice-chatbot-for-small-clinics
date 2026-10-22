@@ -83,8 +83,12 @@ class Settings(BaseSettings):
         description="Groq API key for tool-calling LLM.",
     )
     groq_model: str = Field(
-        default="llama-3.3-70b-versatile",
-        description="Groq model name for the agent.",
+        default="openai/gpt-oss-120b",
+        description=(
+            "Groq model name for the agent. Must support tool calling. "
+            "The old default (llama-3.3-70b-versatile) has been retired by "
+            "Groq and now returns a 404."
+        ),
     )
     voicechat_max_steps: int = Field(
         default=10,
@@ -97,6 +101,24 @@ class Settings(BaseSettings):
     voicechat_system_prompt_path: str | None = Field(
         default=None,
         description="Optional path to override the built-in system prompt.",
+    )
+
+    # Phase 2c — Knowledge Base (SQLite FTS5)
+    voicechat_kb_mode: str = Field(
+        default="rag",
+        description="Knowledge base mode: none | full_prompt | rag",
+    )
+    voicechat_kb_threshold: float = Field(
+        default=2.6,
+        description="BM25 score threshold for 'found' (higher = stricter). Tuned on dev set.",
+    )
+    voicechat_kb_max_results: int = Field(
+        default=3,
+        description="Maximum documents returned by search_knowledge.",
+    )
+    voicechat_kb_dir: str | None = Field(
+        default=None,
+        description="Path to the knowledge/ directory. Defaults to the repo copy.",
     )
 
     @property

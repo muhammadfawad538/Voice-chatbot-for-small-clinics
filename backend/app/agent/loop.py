@@ -22,8 +22,10 @@ from app.tools import (
     check_availability,
     handoff_to_human,
     reschedule,
+    search_knowledge,
 )
 from app.tools.decorator import ToolResult
+from app.tools.knowledge import SearchKnowledgeInput
 from app.tools.tools import (
     BookSlotInput,
     CancelInput,
@@ -89,6 +91,7 @@ TOOL_FUNCTIONS = {
     "reschedule": (reschedule, RescheduleInput),
     "cancel": (cancel, CancelInput),
     "handoff_to_human": (handoff_to_human, HandoffToHumanInput),
+    "search_knowledge": (search_knowledge, SearchKnowledgeInput),
 }
 
 
@@ -154,11 +157,74 @@ def execute_tool(
 
 DEFAULT_SYSTEM_PROMPT = Path(__file__).with_name("prompts") / "system.md"
 
+# The hardcoded FAQ that Phase 2b shipped with. Kept as the `full_prompt`
+# baseline so the RAG numbers mean something: without it there is nothing to
+# compare against.
+FULL_PROMPT_FAQ = """
+## Hardcoded FAQ (baseline — no knowledge search)
 
-def load_system_prompt(path: Path | None = None) -> str:
-    """Load the system prompt from a markdown file."""
+- **Hours:** Monday through Friday, 9 AM to 5 PM Eastern. Closed weekends.
+- **Location:** 123 Main Street, Springfield. Free parking in the lot behind the building.
+- **Pricing:** Services start at $50 for a basic consultation; $75 to $200 for specialty services.
+- **Payment:** Cash, Visa, Mastercard, American Express, Discover, and most major insurance plans.
+- **Cancellation:** Free with 24 hours notice; $25 fee inside 24 hours.
+- **Appointment length:** 30 minutes standard, 60 minutes for new client consultations.
+- **New clients:** Arrive 10 minutes early with a photo ID and insurance card.
+- **Parking:** Free in the lot behind the building; metered street parking on Main Street.
+- **Preparation:** Bring photo ID, insurance card, and a list of current
+  medications.
+- **Holidays:** Closed on New Year's Day, Memorial Day, July 4th, Labor Day,
+  Thanksgiving, and Christmas.
+- **Accessibility:** Step-free entrance, automatic door, accessible restroom,
+  elevator to the second floor.
+- **Transit:** Bus routes 4, 7, and 12 at Main and Oak; Central subway station
+  is a 5-minute walk.
+"""
+
+
+def _render_prompt(template: str, kb_mode: str) -> str:
+    """Render the system prompt template for a knowledge base mode.
+
+    The template uses simple ``{{#if flag}}...{{/if}}`` sections rather than a
+    template engine dependency. Unknown modes fall back to ``none``.
+    """
+    flags = {"kb_mode_rag": kb_mode == "rag"}
+    out = template
+    for flag, value in flags.items():
+        if value:
+            # Keep the block body, drop the markers.
+            out = out.replace(f"{{{{#if {flag}}}}}", "").replace(f"{{{{/{flag}}}}}", "")
+        else:
+            # Drop the whole block, including its body.
+            start = out.find(f"{{{{#if {flag}}}}}")
+            if start != -1:
+                end = out.find(f"{{{{/{flag}}}}}", start)
+                if end != -1:
+                    out = out[:start] + out[end + len(f"{{{{/{flag}}}}}"):]
+    return out
+
+
+def load_system_prompt(path: Path | None = None, kb_mode: str | None = None) -> str:
+    """Load the system prompt from a markdown file and render it for a mode.
+
+    ``kb_mode`` is one of ``none``, ``full_prompt``, or ``rag``. When it is
+    ``None`` the current setting is read from config.
+    """
     p = path or DEFAULT_SYSTEM_PROMPT
-    return p.read_text(encoding="utf-8")
+    template = p.read_text(encoding="utf-8")
+
+    if kb_mode is None:
+        settings = get_settings()
+        kb_mode = str(settings.__dict__.get("voicechat_kb_mode", "rag"))
+
+    rendered = _render_prompt(template, kb_mode)
+    if kb_mode == "full_prompt":
+        rendered = rendered.replace(
+            "## Business Context",
+            FULL_PROMPT_FAQ.strip() + "\n\n## Business Context",
+            1,
+        )
+    return rendered
 
 
 # ---------------------------------------------------------------------------
